@@ -32,8 +32,8 @@ export default function AdScripts({
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`}
           onLoad={handleAdSenseLoad}
           onError={handleAdSenseError}
-          data-ad-client={clientId}
           crossOrigin="anonymous"
+          async
         />
       )}
       
