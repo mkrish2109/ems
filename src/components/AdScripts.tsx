@@ -37,19 +37,12 @@ export default function AdScripts({
         />
       )}
       
-      {/* Consent Management Platform */}
-      <Script
-        id="cmp-script"
-        strategy={scriptStrategy}
-        src="/path-to/cmp.js"
-      />
-      
-      {/* Analytics if enabled */}
+      {/* Analytics if enabled - using Google Analytics instead of placeholder */}
       {enableAnalytics && (
         <Script
-          id="ad-analytics"
+          id="google-analytics"
           strategy="lazyOnload"
-          src="/path-to/ad-analytics.js"
+          src="https://www.googletagmanager.com/gtag/js"
         />
       )}
     </>
