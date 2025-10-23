@@ -51,8 +51,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
         <AdScripts 
-          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
-          enableAnalytics={process.env.NODE_ENV === 'production'}
+          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || 'ca-pub-7311140109585146'}
+          enableAnalytics={true}
         />
         <AuthProvider>
           <NotificationProvider>
