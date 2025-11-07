@@ -5,17 +5,54 @@ import {
   deleteFCMToken,
 } from "../lib/firebase";
 import { ProfileService } from "../lib/api/profile";
+import Cookies from "js-cookie";
+
+// Define proper interfaces for FCM message payload
+interface FCMNotificationPayload {
+  notification?: {
+    title?: string;
+    body?: string;
+    image?: string;
+    icon?: string;
+  };
+  data?: {
+    [key: string]: string;
+  };
+  from?: string;
+  messageId?: string;
+  collapseKey?: string;
+  fcmMessageId?: string;
+  priority?: string;
+  sentTime?: string;
+  ttl?: number;
+}
+
+interface ServiceWorkerMessage {
+  type: string;
+  payload?: FCMNotificationPayload;
+}
+
+// Type guard to check if the value is a valid FCMNotificationPayload
+const isFCMNotificationPayload = (value: unknown): value is FCMNotificationPayload => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value.hasOwnProperty('notification') || value.hasOwnProperty('data'))
+  );
+};
 
 export const useFCMNotifications = () => {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentNotification, setCurrentNotification] = useState<any>(null);
+  const [currentNotification, setCurrentNotification] = useState<FCMNotificationPayload | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
 
-    const updateFCMTokenAndState = async (token: string | null) => {
-    if (token) {
+  // Helper function to update FCM token and state
+  const updateFCMTokenAndState = async (token: string | null) => {
+    const access_token = await Cookies.get("access_token");
+    if (access_token && token) {
       setFcmToken(token);
       await ProfileService.updateFcmToken(token);
       return token;
@@ -23,25 +60,30 @@ export const useFCMNotifications = () => {
     return null;
   };
 
-    const checkServiceWorker = useCallback(async () => {
+  // Check service worker status; if missing, attempt to register it so permission flow isn't blocked
+  const checkServiceWorker = useCallback(async () => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return false;
     }
 
     try {
-            let registration = await navigator.serviceWorker.getRegistration(
+      // Try existing registration
+      let registration = await navigator.serviceWorker.getRegistration(
         "/firebase-messaging-sw.js"
       );
 
-            if (!registration) {
+      // If not registered yet, register now
+      if (!registration) {
         registration = await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js",
           { scope: "/" }
         );
       }
 
-            await navigator.serviceWorker.ready;
-            registration.update?.();
+      // Ensure the SW is active/ready
+      await navigator.serviceWorker.ready;
+      // Optionally trigger update in background
+      registration.update?.();
       return true;
     } catch (error) {
       console.error("Error ensuring service worker:", error);
@@ -54,12 +96,14 @@ export const useFCMNotifications = () => {
       setIsLoading(true);
       setError(null);
 
-            const swActive = await checkServiceWorker();
+      // Check service worker first
+      const swActive = await checkServiceWorker();
       if (!swActive) {
         return;
       }
 
-            const permission = Notification.permission;
+      // Check notification permission
+      const permission = Notification.permission;
       setIsPermissionGranted(permission === "granted");
 
       if (permission === "granted") {
@@ -85,13 +129,15 @@ export const useFCMNotifications = () => {
       setIsLoading(true);
       setError(null);
 
-            const swActive = await checkServiceWorker();
+      // Check service worker
+      const swActive = await checkServiceWorker();
       if (!swActive) {
         setError("Service worker not available. Please refresh the page.");
         return null;
       }
 
-            if (typeof window !== "undefined" && !("Notification" in window)) {
+      // Basic API support check
+      if (typeof window !== "undefined" && !("Notification" in window)) {
         setError("This browser does not support Notifications API.");
         return null;
       }
@@ -152,9 +198,14 @@ export const useFCMNotifications = () => {
     const setupMessageListener = async () => {
       try {
         onMessageListener()
-          .then((payload: any) => {
-            setCurrentNotification(payload);
-            setNotificationCount((prev) => prev + 1);
+          .then((payload: unknown) => {
+            // Use type guard to safely handle the unknown payload
+            if (isFCMNotificationPayload(payload)) {
+              setCurrentNotification(payload);
+              setNotificationCount((prev) => prev + 1);
+            } else {
+              console.warn('Received invalid FCM payload:', payload);
+            }
           })
           .catch((error) => {
             console.error("Message listener error:", error);
@@ -171,8 +222,9 @@ export const useFCMNotifications = () => {
 
   useEffect(() => {
     const handleServiceWorkerMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === "NEW_NOTIFICATION") {
-        setCurrentNotification(event.data.payload);
+      const messageData = event.data as ServiceWorkerMessage;
+      if (messageData && messageData.type === "NEW_NOTIFICATION") {
+        setCurrentNotification(messageData.payload || null);
         setNotificationCount((prev) => prev + 1);
       }
     };

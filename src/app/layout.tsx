@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Poppins } from "next/font/google";
 import NavigationEvents from "@/components/providers/NavigationEvents";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import "./globals.css";
-import AdScripts from "@/components/AdScripts";
+// import AutoAdsScript from "@/components/AutoAdsScript";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,22 +43,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
-        <link rel="preconnect" href="https://googleads.g.doubleclick.net" />
+        <meta
+          name="google-adsense-account"
+          content={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || ""}
+        />
+        <AutoAdsScript
+          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || ""}
+        />
       </head>
-     
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
-        <AdScripts 
-          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || 'ca-pub-7311140109585146'}
-          enableAnalytics={true}
-        />
         <AuthProvider>
           <NotificationProvider>
-            <NavigationEvents>
-              {children}
-            </NavigationEvents>
+            <NavigationEvents>{children}</NavigationEvents>
           </NotificationProvider>
         </AuthProvider>
       </body>

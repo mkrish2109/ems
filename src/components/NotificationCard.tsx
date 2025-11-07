@@ -8,7 +8,6 @@ import NotificationBadge from "./NotificationBadge";
 import notification from "../../public/assets/Icon/notification.svg";
 import Image from "next/image";
 import { useNotificationContext } from "@/contexts/NotificationContext";
-import PageLoader from "./ui/PageLoader";
 import { LoaderTwo } from "./ui/loader";
 
 interface NotificationCardProps {
@@ -98,7 +97,7 @@ export default function NotificationCard({
 
   return (
     <div
-      className={`h-auto bg-white rounded-[10px] mx-auto py-[13px] px-[11px] shadow-sm ${className}`}
+      className={`h-auto bg-white rounded-[10px] mx-auto py-[10px] px-[11px] shadow-sm ${className}`}
     >
       <div className="flex justify-between items-center mb-[5px]">
         <h4 className="text-[14px] font-semibold text-[#052C4D]">

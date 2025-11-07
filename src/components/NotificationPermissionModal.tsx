@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useNotificationContext } from "@/contexts/NotificationContext";
 import { IoIosNotifications } from "react-icons/io";
-import { useFCMNotifications } from "@/hooks/useFCMNotifications";
 
 interface NotificationPermissionModalProps {
   onClose?: () => void;
@@ -18,16 +17,15 @@ export default function NotificationPermissionModal({
 }: NotificationPermissionModalProps) {
   const {
     isPermissionGranted,
-    isNotificationLoading,
-    requestNotificationPermission,
-  } = useAuth();
+    isLoading,
+    requestPermission,
+    error,
+    clearError
+  } = useNotificationContext();
 
   const [isDismissed, setIsDismissed] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const [showModal, setShowModal] = useState(false);
-
-  const { error, clearError } = useFCMNotifications();
-
 
   useEffect(() => {
     if (isPermissionGranted || isDismissed) return;
@@ -51,7 +49,7 @@ export default function NotificationPermissionModal({
     }
 
     try {
-      await requestNotificationPermission();
+      await requestPermission();
       onClose?.();
       setIsDismissed(true);
     } catch (error) {
@@ -85,10 +83,10 @@ export default function NotificationPermissionModal({
         <div className="space-y-3">
           <button
             onClick={handleEnableNotifications}
-            disabled={isNotificationLoading}
+            disabled={isLoading}
             className="w-full h-12 bg-[#008DD2] text-white rounded-[12px] font-semibold hover:bg-[#007cba] disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isNotificationLoading ? "Enabling..." : "Allow Notifications"}
+            {isLoading ? "Enabling..." : "Allow Notifications"}
           </button>
           <button
             onClick={handleDismiss}

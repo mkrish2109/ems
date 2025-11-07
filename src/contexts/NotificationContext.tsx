@@ -9,6 +9,25 @@ import React, {
 } from "react";
 import { useFCMNotifications } from "@/hooks/useFCMNotifications";
 
+// Define proper interface for notification
+interface NotificationData {
+  title?: string;
+  body?: string;
+  icon?: string;
+  image?: string;
+  data?: {
+    [key: string]: string;
+  };
+  timestamp?: number;
+  tag?: string;
+  requireInteraction?: boolean;
+  actions?: Array<{
+    action: string;
+    title: string;
+    icon?: string;
+  }>;
+}
+
 interface NotificationContextType {
   unreadCount: number;
   setUnreadCount: (count: number) => void;
@@ -20,7 +39,7 @@ interface NotificationContextType {
   isPermissionGranted: boolean;
   isLoading: boolean;
   error: string | null;
-  currentNotification: any;
+  currentNotification: NotificationData | null;
   notificationCount: number;
   requestPermission: () => Promise<string | null>;
   removeFCMToken: () => Promise<void>;

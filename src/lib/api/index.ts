@@ -1,7 +1,5 @@
 import Cookies from "js-cookie";
 
-const accessToken = Cookies.get('access_token'); 
-
 // ----------------- Income Types -----------------
 export type IncomeCategory = {
   income_category_id: number;
@@ -216,28 +214,43 @@ export const fetchRoles = async (): Promise<Role[]> => {
 };
 
 // New function to validate invitation token
+// In validateInvitation function in lib/api/index.ts
 export const validateInvitation = async (
   token: string
 ): Promise<InvitationResponse> => {
-  // CORRECTED ENDPOINT based on user input
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invitations/validate/${token}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-  });
+  // Try different possible endpoints:
+  const possibleEndpoints = [
+    `${process.env.NEXT_PUBLIC_API_URL}/invitations/validate/${token}`,
+    `${process.env.NEXT_PUBLIC_API_URL}/invitations/${token}/validate`,
+    `${process.env.NEXT_PUBLIC_API_URL}/invitations/${token}`,
+    `${process.env.NEXT_PUBLIC_API_URL}/validate-invitation/${token}`,
+  ];
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    // Throw error message to be caught in the component
-    throw new Error(
-      errorData.message || "Invalid or expired invitation token."
-    );
+  let lastError: Error | null = null;
+
+  for (const endpoint of possibleEndpoints) {
+    try {
+      console.log('Trying endpoint:', endpoint);
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+        const data: InvitationResponse = await response.json();
+        return data;
+      }
+      
+      const errorData = await response.json().catch(() => ({}));
+      lastError = new Error(errorData.message || `Endpoint ${endpoint} failed`);
+    } catch (error) {
+      lastError = error as Error;
+    }
   }
 
-  const data: InvitationResponse = await response.json();
-  return data;
+  throw lastError || new Error("Invalid or expired invitation token.");
 };
-
 // Register user (no auto-login) - Payload updated to include optional token
 export const registerUser = async (payload: {
   user_name: string;
@@ -330,7 +343,7 @@ export const inviteMember = async (payload: {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || "Invite failed");
+    throw errorData; 
   }
 
   return response.json();
