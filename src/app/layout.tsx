@@ -5,7 +5,7 @@ import { Poppins } from "next/font/google";
 import NavigationEvents from "@/components/providers/NavigationEvents";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import "./globals.css";
-// import AutoAdsScript from "@/components/AutoAdsScript";
+import AutoAdsScript from "@/components/AutoAdsScript";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
