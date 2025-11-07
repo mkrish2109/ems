@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader";
-import { useRouter } from "next/navigation";
 
 interface ContentPageProps {
   title: string;
@@ -19,7 +18,6 @@ export default function ContentPage({ title, type }: ContentPageProps) {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const router = useRouter();
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -35,9 +33,8 @@ export default function ContentPage({ title, type }: ContentPageProps) {
         } else {
           setError(data.error || "Failed to load content");
         }
-      } catch (err) {
+      } catch {
         setError("Network error occurred. Please check your connection.");
-        // console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }

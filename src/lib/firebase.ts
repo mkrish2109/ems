@@ -5,6 +5,7 @@ import {
   onMessage,
   isSupported,
   deleteToken,
+  MessagePayload,
 } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -15,6 +16,19 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Create a compatible interface that extends MessagePayload properly
+interface FCMNotificationPayload extends Omit<MessagePayload, 'data'> {
+  notification?: {
+    title?: string;
+    body?: string;
+    image?: string;
+    icon?: string;
+  };
+  data?: {
+    [key: string]: string;
+  };
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -136,7 +150,7 @@ export const onMessageListener = () => {
     getMessagingInstance()
       .then((messaging) => {
         if (messaging) {
-          onMessage(messaging, (payload) => {
+          onMessage(messaging, (payload: FCMNotificationPayload) => {
             showForegroundNotification(payload);
 
             if (typeof window !== "undefined") {
@@ -156,13 +170,13 @@ export const onMessageListener = () => {
 };
 
 // Show notification when app is in foreground
-const showForegroundNotification = (payload: any) => {
+const showForegroundNotification = (payload: FCMNotificationPayload) => {
   if (typeof window === "undefined") return;
 
   if (Notification.permission === "granted" && payload.notification) {
     const { title, body } = payload.notification;
 
-    const notification = new Notification(title, {
+    const notification = new Notification(title || "New Notification", {
       body: body,
       icon: "/assets/Icon/android-launchericon-192-192.png",
       badge: "/assets/Icon/android-launchericon-144-144.png",
@@ -184,7 +198,7 @@ const showForegroundNotification = (payload: any) => {
 };
 
 // Handle navigation based on notification data
-const handleNotificationNavigation = (data: any) => {
+const handleNotificationNavigation = (data: { [key: string]: string } | undefined) => {
   if (!data || typeof window === "undefined") return;
 
   switch (data.type) {

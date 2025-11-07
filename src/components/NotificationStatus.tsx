@@ -1,15 +1,15 @@
 "use client";
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 
 export default function NotificationStatus() {
   const { 
     isPermissionGranted,
     fcmToken,
-    isNotificationLoading
-  } = useAuth();
+    isLoading
+  } = useNotificationContext();
 
-  if (isNotificationLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center text-blue-600 text-sm">
         <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
