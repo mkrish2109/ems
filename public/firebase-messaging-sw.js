@@ -5,69 +5,121 @@ importScripts(
   "https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js"
 );
 
-// Replace these with your actual Firebase config values
-const firebaseConfig = {
-  apiKey: "AIzaSyDXcQQ--LvE9xNvGYvNZ2umasJdjPzmtHU",
-  authDomain: "expense-management-syste-97064.firebaseapp.com",
-  projectId: "expense-management-syste-97064",
-  storageBucket: "expense-management-syste-97064.firebasestorage.app",
-  messagingSenderId: "597211057105",
-  appId: "1:597211057105:web:8412b7f1ccdac352626ef0",
+// Notification type constants
+const NOTIFICATION_TYPES = {
+  NEW_EXPENSE: "new_expense",
+  EXPENSE_ADDED_FOR_YOU: "expense_added_for_you",
+  SIGNIFICANT_EXPENSE: "significant_expense",
+  FAMILY_INVITATION: "family_invitation",
 };
 
-firebase.initializeApp(firebaseConfig);
+const NOTIFICATION_ROUTES = {
+  [NOTIFICATION_TYPES.NEW_EXPENSE]: "/expenses",
+  [NOTIFICATION_TYPES.EXPENSE_ADDED_FOR_YOU]: "/expenses",
+  [NOTIFICATION_TYPES.SIGNIFICANT_EXPENSE]: "/expenses",
+  [NOTIFICATION_TYPES.FAMILY_INVITATION]: "/family",
+};
 
-const messaging = firebase.messaging();
+const MESSAGE_TYPES = {
+  INIT_FIREBASE_CONFIG: "INIT_FIREBASE_CONFIG",
+  SKIP_WAITING: "SKIP_WAITING",
+  CHECK_SERVICE_WORKER: "CHECK_SERVICE_WORKER",
+  NEW_NOTIFICATION: "NEW_NOTIFICATION",
+  NOTIFICATION_CLICKED: "NOTIFICATION_CLICKED",
+};
 
-// Enhanced background message handler with better reliability
-messaging.onBackgroundMessage(async (payload) => {
-  console.log("Received background message:", payload);
+// Firebase config will be injected from main thread
+let firebaseConfig = null;
+let isInitialized = false;
 
-  // Ensure service worker is ready
-  await self.registration.ready;
+// Handle messages from main thread
+self.addEventListener("message", (event) => {
+  console.log("Service worker received message:", event.data?.type);
 
-  const notificationTitle = payload.notification?.title || "EMS Notification";
-  const notificationOptions = {
-    body: payload.notification?.body || "You have a new notification",
-    icon: "/assets/Icon/android-launchericon-192-192.png",
-    badge: "/assets/Icon/android-launchericon-144-144.png",
-    tag: payload.data?.expense_id || `bg-${Date.now()}`, // Unique tag for each notification
-    renotify: true,
-    requireInteraction: true,
-    silent: false,
-    vibrate: [200, 100, 200], // Vibration pattern
-    data: payload.data || {},
-    actions: [
-      {
-        action: "view",
-        title: "View Details",
-      },
-      {
-        action: "dismiss",
-        title: "Dismiss",
-      },
-    ],
-  };
+  if (event.data?.type === MESSAGE_TYPES.INIT_FIREBASE_CONFIG) {
+    firebaseConfig = event.data.config;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      isInitialized = true;
+      console.log("Firebase initialized in service worker");
+    } catch (error) {
+      console.error("Error initializing Firebase:", error);
+    }
+  }
 
-  try {
-    // Show notification
-    await self.registration.showNotification(
-      notificationTitle,
-      notificationOptions
-    );
-    // console.log('Background notification shown successfully:', payload.data);
-    // Send message to all clients about the new notification
-    const clients = await self.clients.matchAll();
-    clients.forEach((client) => {
-      client.postMessage({
-        type: "NEW_NOTIFICATION",
-        payload: payload,
-      });
+  if (event.data?.type === MESSAGE_TYPES.SKIP_WAITING) {
+    self.skipWaiting();
+  }
+
+  if (event.data?.type === MESSAGE_TYPES.CHECK_SERVICE_WORKER) {
+    event.ports[0].postMessage({
+      type: "SERVICE_WORKER_ACTIVE",
     });
-  } catch (error) {
-    console.error("Error showing background notification:", error);
   }
 });
+
+// Enhanced background message handler with better reliability
+function setupMessaging() {
+  if (!isInitialized) {
+    console.warn("Firebase not yet initialized, waiting for config...");
+    setTimeout(setupMessaging, 1000);
+    return;
+  }
+
+  const messaging = firebase.messaging();
+
+  messaging.onBackgroundMessage(async (payload) => {
+    console.log("Received background message:", payload);
+
+    // Ensure service worker is ready
+    await self.registration.ready;
+
+    const notificationTitle = payload.notification?.title || "EMS Notification";
+    const notificationOptions = {
+      body: payload.notification?.body || "You have a new notification",
+      icon: "/assets/Icon/android-launchericon-192-192.png",
+      badge: "/assets/Icon/android-launchericon-144-144.png",
+      tag: payload.data?.expense_id || `bg-${Date.now()}`,
+      renotify: true,
+      requireInteraction: true,
+      silent: false,
+      vibrate: [200, 100, 200],
+      data: payload.data || {},
+      actions: [
+        {
+          action: "view",
+          title: "View Details",
+        },
+        {
+          action: "dismiss",
+          title: "Dismiss",
+        },
+      ],
+    };
+
+    try {
+      // Show notification
+      await self.registration.showNotification(
+        notificationTitle,
+        notificationOptions
+      );
+      // Send message to all clients about the new notification
+      const clients = await self.clients.matchAll();
+      clients.forEach((client) => {
+        try {
+          client.postMessage({
+            type: MESSAGE_TYPES.NEW_NOTIFICATION,
+            payload: payload,
+          });
+        } catch (error) {
+          console.error("Error sending message to client:", error);
+        }
+      });
+    } catch (error) {
+      console.error("Error showing background notification:", error);
+    }
+  });
+}
 
 // Enhanced notification click handler
 self.addEventListener("notificationclick", (event) => {
@@ -85,7 +137,7 @@ self.addEventListener("notificationclick", (event) => {
 
   // Default action - open/focus the app
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({
         type: "window",
         includeUncontrolled: true,
@@ -94,60 +146,46 @@ self.addEventListener("notificationclick", (event) => {
         // Check if there's already a window open
         for (const client of clientList) {
           if (client.url.includes(self.location.origin)) {
-            client.focus();
+            try {
+              client.focus();
 
-            // Send notification data to client
-            client.postMessage({
-              type: "NOTIFICATION_CLICKED",
-              data: notificationData,
-            });
-            return;
+              // Send notification data to client
+              client.postMessage({
+                type: MESSAGE_TYPES.NOTIFICATION_CLICKED,
+                data: notificationData,
+              });
+              return;
+            } catch (error) {
+              console.error("Error communicating with client:", error);
+            }
           }
         }
 
         // If no window found, open a new one
-        if (clients.openWindow) {
-          let url = "/";
-
-          // Navigate to specific page based on notification data
-          if (
-            notificationData?.type === "new_expense" ||
-            notificationData?.type === "expense_added_for_you" ||
-            notificationData?.type === "significant_expense"
-          ) {
-            url = "/expenses";
-          } else if (notificationData?.type === "family_invitation") {
-            url = "/family";
-          }
-
-          return clients.openWindow(url);
+        if (self.clients.openWindow) {
+          const url =
+            NOTIFICATION_ROUTES[notificationData?.type] || "/";
+          return self.clients.openWindow(url).catch((error) => {
+            console.error("Error opening window:", error);
+          });
         }
       })
+      .catch((error) => {
+        console.error("Error handling notification click:", error);
+      })
   );
-});
-
-// Handle messages from main thread
-self.addEventListener("message", (event) => {
-  console.log("Service worker received message:", event.data);
-
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-
-  if (event.data && event.data.type === "CHECK_SERVICE_WORKER") {
-    event.ports[0].postMessage({
-      type: "SERVICE_WORKER_ACTIVE",
-    });
-  }
 });
 
 // Service worker lifecycle events
 self.addEventListener("install", (_event) => {
   console.log("Service worker installing...");
-  self.skipWaiting(); // Activate immediately
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   console.log("Service worker activating...");
-  event.waitUntil(self.clients.claim()); // Take control of all clients
+  event.waitUntil(self.clients.claim());
 });
+
+// Initialize messaging when ready
+setupMessaging();
